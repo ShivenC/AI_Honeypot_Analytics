@@ -7,7 +7,7 @@ import joblib
 st.title("AI-Powered Honeypot Analytics Dashboard")
 
 # Load the logs/features
-logs_path = "../data/honeypot_realistic_1000.csv"
+logs_path = "data/honeypot_realistic_1000.csv"
 df = pd.read_csv(logs_path)
 
 st.subheader("Raw Honeypot Logs")
