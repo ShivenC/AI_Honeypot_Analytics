@@ -26,13 +26,13 @@ try:
     and provide a short summary highlighting key trends in attack types, threat scores, and attacker locations.
     """
 
-    response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
+    response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": prompt}],
+    temperature=0
+)
 
-    ai_report = response.choices[0].message.content
+    ai_report = response.choices[0].message["content"]
     st.write(ai_report)
 
 except Exception as e:
