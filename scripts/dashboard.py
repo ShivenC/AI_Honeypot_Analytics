@@ -16,28 +16,31 @@ df = pd.read_csv(logs_path)
 st.subheader("Raw Honeypot Logs")
 st.dataframe(df)
 
-# ---- AI-Generated Report ----
+# ---- AI-Generated Report (GPT-5) ----
 st.subheader("AI-Generated Report")
-try:
-    # Use Streamlit secrets or environment variable
-    openai.api_key = st.secrets["OPENAI_API_KEY"]  # or os.getenv("OPENAI_API_KEY")
+if st.button("Generate AI Report"):
+    try:
+        # Load API key from Streamlit secrets
+        openai.api_key = st.secrets["OPENAI_API_KEY"]  # or os.getenv("OPENAI_API_KEY")
 
-    prompt = f"""
-    You are a cybersecurity AI. Analyze the following dataset (1000 honeypot logs)
-    and provide a short summary highlighting key trends in attack types, threat scores, and attacker locations.
-    """
+        prompt = f"""
+        You are a cybersecurity AI. Analyze the following dataset (1000 honeypot logs)
+        and provide a concise summary highlighting key trends in attack types, threat scores, and attacker locations.
+        Dataset example: {df.head(5).to_dict()}
+        """
 
-    response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
+        response = openai.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
 
-    ai_report = response.choices[0].message["content"]
-    st.write(ai_report)
+        ai_report = response.choices[0].message["content"]
+        st.success("AI Report Generated:")
+        st.write(ai_report)
 
-except Exception as e:
-    st.error(f"GPT-3.5 failed to generate report: {e}")
+    except Exception as e:
+        st.error(f"GPT-5 failed to generate report: {e}")
 
 # ---- Summary Charts ----
 st.subheader("Attack Type Distribution")
@@ -65,10 +68,8 @@ st.plotly_chart(fig3, use_container_width=True)
 st.subheader("Classify a New Session")
 session_input = st.text_area("Paste session command here:")
 
-if st.button("Classify"):
+if st.button("Classify Session"):
     st.info("Analyzing session...")
-
-    # ---- Optional: ML Model Prediction ----
     try:
         model_path = "../models/honeypot_model.pkl"
         model = joblib.load(model_path)
