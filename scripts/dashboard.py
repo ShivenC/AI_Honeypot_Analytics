@@ -20,7 +20,6 @@ st.dataframe(df)
 st.subheader("AI-Generated Report")
 if st.button("Generate AI Report"):
     try:
-        # Load API key from Streamlit secrets
         openai.api_key = st.secrets["OPENAI_API_KEY"]  # or os.getenv("OPENAI_API_KEY")
 
         prompt = f"""
@@ -34,7 +33,7 @@ if st.button("Generate AI Report"):
             messages=[{"role": "user", "content": prompt}]
         )
 
-        ai_report = response.choices[0].message["content"]
+        ai_report = response.choices[0].message.content
         st.success("AI Report Generated:")
         st.write(ai_report)
 
@@ -47,7 +46,7 @@ attack_counts = df['attack_type'].value_counts()
 fig1 = px.bar(
     x=attack_counts.index,
     y=attack_counts.values,
-    labels={'x':'Attack Type','y':'Count'}
+    labels={'x': 'Attack Type', 'y': 'Count'}
 )
 st.plotly_chart(fig1, use_container_width=True)
 
@@ -67,8 +66,10 @@ st.plotly_chart(fig3, use_container_width=True)
 st.subheader("Classify a New Session")
 session_input = st.text_area("Paste session command here:")
 
-if st.button("Classify Session"):
+if st.button("Classify"):
     st.info("Analyzing session...")
+
+    # ---- Optional: ML Model Prediction ----
     try:
         model_path = "../models/honeypot_model.pkl"
         model = joblib.load(model_path)
