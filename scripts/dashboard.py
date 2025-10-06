@@ -27,7 +27,7 @@ try:
     """
 
     response = openai.chat.completions.create(
-        model="gpt-5-mini",
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
@@ -36,7 +36,7 @@ try:
     st.write(ai_report)
 
 except Exception as e:
-    st.error(f"GPT-5 failed to generate report: {e}")
+    st.error(f"GPT-3.5 failed to generate report: {e}")
 
 # ---- Summary Charts ----
 st.subheader("Attack Type Distribution")
