@@ -22,10 +22,27 @@ if st.button("Generate AI Report"):
     try:
         openai.api_key = st.secrets["OPENAI_API_KEY"]  # or os.getenv("OPENAI_API_KEY")
 
+        # ---- Local summary to reduce tokens ----
+        attack_counts = df['attack_type'].value_counts().to_dict()
+        threat_stats = df['threat_score'].describe().to_dict()
+        top_countries = df['geo_country'].value_counts().head(5).to_dict()
+        high_threat = df[df['threat_score'] >= 0.7].shape[0]
+
+        local_summary = f"""
+        Attack counts: {attack_counts}
+        Threat score stats: mean {threat_stats['mean']:.2f}, max {threat_stats['max']:.2f}
+        Top 5 countries: {top_countries}
+        High threat sessions: {high_threat}
+        Total sessions: {len(df)}
+        """
+
+        # ---- GPT-5 Prompt ----
         prompt = f"""
-        You are a cybersecurity AI. Analyze the following dataset (1000 honeypot logs)
-        and provide a concise summary highlighting key trends in attack types, threat scores, and attacker locations.
-        Dataset example: {df.head(5).to_dict()}
+        You are a cybersecurity AI. Using the summary below, generate a concise 1-paragraph
+        analysis of honeypot activity and list 5 key points for quick insights.
+
+        Summary:
+        {local_summary}
         """
 
         response = openai.chat.completions.create(
@@ -68,8 +85,6 @@ session_input = st.text_area("Paste session command here:")
 
 if st.button("Classify"):
     st.info("Analyzing session...")
-
-    # ---- Optional: ML Model Prediction ----
     try:
         model_path = "../models/honeypot_model.pkl"
         model = joblib.load(model_path)
