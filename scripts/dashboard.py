@@ -19,6 +19,7 @@ st.dataframe(df)
 # ---- AI-Generated Report ----
 st.subheader("AI-Generated Report")
 try:
+    # Use Streamlit secrets or environment variable
     openai.api_key = st.secrets["OPENAI_API_KEY"]  # or os.getenv("OPENAI_API_KEY")
 
     prompt = f"""
@@ -26,11 +27,11 @@ try:
     and provide a short summary highlighting key trends in attack types, threat scores, and attacker locations.
     """
 
-    response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[{"role": "user", "content": prompt}],
-    temperature=0
-)
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
 
     ai_report = response.choices[0].message["content"]
     st.write(ai_report)
