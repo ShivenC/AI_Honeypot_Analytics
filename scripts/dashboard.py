@@ -31,8 +31,7 @@ if st.button("Generate AI Report"):
 
         response = openai.chat.completions.create(
             model="gpt-5-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0
+            messages=[{"role": "user", "content": prompt}]
         )
 
         ai_report = response.choices[0].message["content"]
