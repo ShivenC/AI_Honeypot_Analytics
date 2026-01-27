@@ -166,42 +166,38 @@ if st.button("Classify Command"):
             st.warning(f"OpenAI call failed: {e}")
 
 # ---- ML Section (Random Forest) ----
-st.subheader("Classify Uploaded or Generated Session Data (Random Forest)")
+st.subheader("Classify Uploaded or Sample Session Data (Random Forest)")
 
 # Upload CSV
 uploaded_file = st.file_uploader("Upload a CSV with session features", type="csv")
 
+# Option to use a sample session
+use_sample = st.checkbox("Use sample session data for testing")
+
+df_test = None
 if uploaded_file:
-    df_upload = pd.read_csv(uploaded_file)
+    df_test = pd.read_csv(uploaded_file)
+elif use_sample:
+    df_test = pd.DataFrame([{
+        'failed_logins': 1,
+        'commands_count': 3,
+        'has_url': 1,
+        'payload_hash_present': 0,
+        'geo_lat': 40.24,
+        'geo_lon': 116.65,
+        'threat_score': 0.4
+    }])
+
+if df_test is not None:
     model_path = Path("models/honeypot_model.pkl")
     if model_path.exists():
         model = joblib.load(model_path)
         features = ['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']
-        if all(f in df_upload.columns for f in features):
-            preds = model.predict(df_upload[features])
-            df_upload['ML_Prediction'] = preds
-            st.dataframe(df_upload)
+        if all(f in df_test.columns for f in features):
+            preds = model.predict(df_test[features])
+            df_test['ML_Prediction'] = preds
+            st.dataframe(df_test)
         else:
-            st.error("CSV is missing required features")
-    else:
-        st.error("Random Forest model not found in models/honeypot_model.pkl")
-
-# Generate random data
-if st.button("Generate Random Session for ML Prediction"):
-    random_session = pd.DataFrame([{
-        'failed_logins': np.random.randint(0,5),
-        'commands_count': np.random.randint(0,10),
-        'has_url': np.random.randint(0,2),
-        'payload_hash_present': np.random.randint(0,2),
-        'geo_lat': np.random.uniform(-90,90),
-        'geo_lon': np.random.uniform(-180,180),
-        'threat_score': np.random.uniform(0,1)
-    }])
-    model_path = Path("models/honeypot_model.pkl")
-    if model_path.exists():
-        model = joblib.load(model_path)
-        pred = model.predict(random_session)[0]
-        random_session['ML_Prediction'] = pred
-        st.dataframe(random_session)
+            st.error("Data is missing required features")
     else:
         st.error("Random Forest model not found in models/honeypot_model.pkl")
