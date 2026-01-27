@@ -166,13 +166,13 @@ elif use_sample:
         'failed_logins': 1,
         'commands_count': 3,
         'has_url': 1,
-        'payload_hash_present': 0,
+        'payload_hash': 0,
         'geo_lat': 40.24,
         'geo_lon': 116.65,
         'threat_score': 0.4
     }])
 
-features = ['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']
+features = ['failed_logins','commands_count','has_url','payload_hash','geo_lat','geo_lon','threat_score']
 
 if df_test is not None:
     if all(f in df.columns for f in features) and 'attack_type' in df.columns:
