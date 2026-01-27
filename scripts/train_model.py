@@ -26,5 +26,5 @@ print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
 
 # Save model
-joblib.dump(clf, "../models/honeypot_model.pkl")
+joblib.dump(clf, "models/honeypot_model.pkl")
 print("Model trained and saved to models/honeypot_model.pkl")
