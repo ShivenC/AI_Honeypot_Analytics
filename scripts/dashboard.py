@@ -19,7 +19,9 @@ logs_path = "data/honeypot_realistic_1000.csv"
 try:
     df = pd.read_csv(logs_path)
     # FIX: create payload_hash_present feature for ML
-    df['payload_hash_present'] = df['payload_hash'].fillna(0).astype(int)
+    df['payload_hash_present'] = df['payload_hash'].notnull() & df['payload_hash'].astype(bool)
+    df['payload_hash_present'] = df['payload_hash_present'].astype(int)
+
 except Exception as e:
     st.error(f"Failed to load data from {logs_path}: {e}")
     st.stop()
