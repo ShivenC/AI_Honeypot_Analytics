@@ -7,6 +7,9 @@ import openai
 import os
 from pathlib import Path
 import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
 
 # ---- Streamlit Page Setup ----
 st.set_page_config(page_title="AI-Powered Honeypot Analytics Dashboard", layout="wide")
@@ -24,7 +27,7 @@ except Exception as e:
 st.write(f"Number of sessions loaded: {len(df)}")
 
 st.subheader("Raw Honeypot Logs")
-st.dataframe(df)  # streamlit displays a scrollable table
+st.dataframe(df)
 
 # ---- AI-Generated Report (GPT-5, on-demand) ----
 st.subheader("AI-Generated Report")
@@ -188,16 +191,26 @@ elif use_sample:
         'threat_score': 0.4
     }])
 
+# ---- Train/load Random Forest automatically ----
+model_path = Path("models/honeypot_model.pkl")
+if not model_path.exists():
+    st.info("Training Random Forest model for the first time...")
+    X = df[['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']]
+    y = df['attack_type'].apply(lambda x: 0 if x=='benign' else 1)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(X_train, y_train)
+    joblib.dump(clf, model_path)
+    st.success("Random Forest model trained and saved.")
+else:
+    clf = joblib.load(model_path)
+
+# ---- Make predictions ----
 if df_test is not None:
-    model_path = Path("models/honeypot_model.pkl")
-    if model_path.exists():
-        model = joblib.load(model_path)
-        features = ['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']
-        if all(f in df_test.columns for f in features):
-            preds = model.predict(df_test[features])
-            df_test['ML_Prediction'] = preds
-            st.dataframe(df_test)
-        else:
-            st.error("Data is missing required features")
+    features = ['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']
+    if all(f in df_test.columns for f in features):
+        preds = clf.predict(df_test[features])
+        df_test['ML_Prediction'] = preds
+        st.dataframe(df_test)
     else:
-        st.error("Random Forest model not found in models/honeypot_model.pkl")
+        st.error("Data is missing required features")
