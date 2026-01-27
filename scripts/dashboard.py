@@ -18,9 +18,12 @@ st.title("AI-Powered Honeypot Analytics Dashboard")
 logs_path = "data/honeypot_realistic_1000.csv"
 try:
     df = pd.read_csv(logs_path)
+    # FIX: create payload_hash_present feature for ML
+    df['payload_hash_present'] = df['payload_hash'].fillna(0).astype(int)
 except Exception as e:
     st.error(f"Failed to load data from {logs_path}: {e}")
     st.stop()
+
 
 st.write(f"Number of sessions loaded: {len(df)}")
 
