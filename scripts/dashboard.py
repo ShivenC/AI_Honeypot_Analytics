@@ -9,6 +9,20 @@ import numpy as np
 st.set_page_config(page_title="AI-Powered Honeypot Analytics Dashboard", layout="wide")
 st.title("AI-Powered Honeypot Analytics Dashboard")
 
+st.subheader("AI-Generated Report")
+if st.button("Generate AI Report (GPT-5)"):
+    try:
+        # load OpenAI key from Streamlit secrets or environment
+        openai_key = None
+        if "OPENAI_API_KEY" in st.secrets:
+            openai_key = st.secrets["OPENAI_API_KEY"]
+@@ -41,10 +41,8 @@
+        else:
+            openai.api_key = openai_key
+
+
+
+
 # ---- Load Data ----
 logs_path = "data/honeypot_realistic_1000.csv"
 try:
