@@ -4,6 +4,8 @@ import pandas as pd
 import plotly.express as px
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
+import os
+import openai
 
 # ---- Streamlit Page Setup ----
 st.set_page_config(page_title="AI-Powered Honeypot Analytics Dashboard", layout="wide")
